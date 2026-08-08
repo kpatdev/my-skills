@@ -1,63 +1,83 @@
-# Recipes
+# Operation recipes
 
-Each recipe assumes a fresh **snapshot** and an explicit OK from the user — see "Mutating" in `SKILL.md`. `$MEMO_EDITOR` is the absolute path to `scripts/memo-editor.sh`.
+Use these only inside the transaction in [`SKILL.md`](SKILL.md). `$memo_editor` below means the absolute path to `scripts/memo-editor.sh` in this skill.
 
-## Edit a note — `-e`
+Memo 0.6.x interpolates prompted folder names and reminder titles into AppleScript without escaping literal double quotes. Use names without `"` for mutations; use Notes.app or Reminders.app when quotes are required.
 
-The shim overwrites the editor's temp file wholesale, so build the full new body first:
+## Create a note
 
-```sh
-memo notes -v 12 > /tmp/note.md      # exact current body
-# ...rewrite /tmp/note.md in full...
-printf '12\n' | MEMO_BODY=/tmp/note.md EDITOR="$MEMO_EDITOR" memo notes -e
-```
-
-`-v` renders each inline image as a `[MEMO_IMG_1]` placeholder — the same placeholders the editor would have shown. Carry one through verbatim to keep that image; drop it to delete the image. Surviving images are re-attached at the end of the note regardless of where the placeholder sat, an AppleScript limitation with no workaround.
-
-If the body comes back byte-identical, `memo` prints "No changes made" and writes nothing.
-
-## Move a note — `-m`
+Confirm the destination's exact spelling with `memo notes -fl`. Stage the body in a private temporary file; its first rendered line becomes the note title.
 
 ```sh
-printf '12\nArchive\n' | memo notes -m      # number, then target folder
+memo_editor="/absolute/path/to/memo/scripts/memo-editor.sh"
+memo_body_file=$(mktemp -t memo-body)
+chmod 600 "$memo_body_file"
+printf '%s\n' '# Grocery list' '' '- milk' '- eggs' > "$memo_body_file"
+MEMO_BODY="$memo_body_file" EDITOR="$memo_editor" memo notes -f "Docs" -a
 ```
 
-A target folder that doesn't exist is **created**, so a typo silently makes a stray folder — check `memo notes -fl` first. The move re-creates the note from its name and body and deletes the original: the note gets a new id, and anything not carried in the body (attachments) may not survive.
+The shim requires a non-empty body and leaves memo's editor file unchanged on failure, so memo cancels safely. Remove the staged file after verification.
 
-## Delete a note — `-d`
+Memo 0.6.x inserts converted HTML directly into an AppleScript string. Plain Markdown prose, headings, lists, emphasis, and code are safe; Markdown links, images, and raw HTML attributes produce literal double quotes and can make the write fail. Use plain URLs or Notes.app when the body needs those constructs.
+
+## Edit a note
+
+Editing replaces the complete note body. Build a complete replacement file from the content itself; `memo notes -v N` adds presentation whitespace around its output, so do not redirect it verbatim into the replacement.
+
+Before authorization, explain the 0.6.x round-trip losses:
+
+- Apple Notes semantic styles and linked-text URLs can be lost.
+- Non-image attachments can be lost.
+- Images appear as `[MEMO_IMG_N]` placeholders. Keep each required placeholder verbatim; surviving images are reattached at the end of the note. Removing a placeholder deletes that image.
+
+Prefer Notes.app when any loss is unacceptable. Otherwise, stage the full replacement in `$memo_body_file`, then start this command as a live process:
 
 ```sh
-printf '12\n' | memo notes -d
+MEMO_BODY="$memo_body_file" EDITOR="$memo_editor" memo notes -nc -e
 ```
 
-## Delete a folder — `-r`
+Wait for the fresh unfiltered list and edit prompt, match the authorized line, then feed its global number. If the stripped replacement equals the original Markdown, memo writes nothing.
+
+## Move a note
+
+Confirm the exact destination with `memo notes -fl`, then start `memo notes -nc -m` as a live process. Match and feed the authorized global number, then feed the destination folder.
+
+A nonexistent destination is created, so a typo creates a stray folder. A move creates a new note from the original name and HTML body and deletes the original; its ID changes and attachments may not survive. Include both effects in the authorization.
+
+## Delete a note or folder
+
+- Note: start `memo notes -nc -d`, match the authorized line, then feed its global number.
+- Folder: start `memo notes -r`, wait for its folder list and prompt, then feed the exact authorized folder name.
+
+Folder deletion also deletes every note it contains. Memo does not clear the notes cache after folder deletion, so verification must use `memo notes -nc`. Deleted Notes content normally goes to Recently Deleted, where Apple controls the recovery window.
+
+## Export notes
+
+State the destination and possible overwrites before authorization. Existing same-name `.html` and `.md` files can be truncated. Password-protected notes are skipped, and Markdown conversion does not preserve pictures or attachments.
+
+Prompt order is: confirm export, choose default path, enter a custom path when needed, then choose Markdown conversion. Feed all prompts:
 
 ```sh
-printf 'Old Stuff\n' | memo notes -r        # folder name, not a number
+printf 'y\ny\nn\n' | memo notes -ex                    # all → default, HTML only
+printf 'y\ny\ny\n' | memo notes -ex -f "Docs"          # folder → default, HTML + Markdown
+printf 'y\nn\n/Users/you/exports/\nn\n' | memo notes -ex  # all → custom, HTML only
 ```
 
-Takes every note in the folder with it. The only confirmation is the one you feed it, so get the user's OK on the folder name spelled out.
+Create a custom destination first. Memo 0.6.x reports a missing path, then proceeds to create it, which can disguise a typo.
 
-## Export to HTML — `-ex`
+## Reminders
+
+`memo rem` lists incomplete reminders across all reminder lists; memo 0.6.x has no reminder-list filter. It shows an undated reminder as due today. Every added reminder requires a title, date, and time:
 
 ```sh
-printf 'y\ny\n' | memo notes -ex                 # all notes → ~/Desktop/notes/
-printf 'y\ny\n' | memo notes -ex -f "Docs"       # one folder
-printf 'y\nn\n/Users/you/exports\n' | memo notes -ex   # custom path
+printf '%s\n' 'Call Denise' '2026-08-12' '09:00' | memo rem -a
 ```
 
-A custom path must already exist — `memo` prints an error but still proceeds when it doesn't. Create the directory first.
+For an indexed reminder change, start the command as a live process and keep stdin open:
 
-## Reminders — `memo rem`
+- Complete: `memo rem -c`; match the fresh line, then feed `N`.
+- Delete: `memo rem -d`; match the fresh line, then feed `N`.
+- Retitle: `memo rem -e`; match and feed `N`, then `title`, then the new title.
+- Reschedule: `memo rem -e`; match and feed `N`, then `due date`, `YYYY-MM-DD`, then `HH:MM`.
 
-Reminders are fetched live, never cached, and the list covers incomplete reminders only. There's no list or folder filter. `-c`, `-d`, and `-e` each print the full numbered list and then prompt, so the numbers you read are the numbers they use; an out-of-range number raises `IndexError` and changes nothing.
-
-```sh
-printf 'Call Denise\n2026-08-12\n09:00\n' | memo rem -a   # title, YYYY-MM-DD, HH:MM
-printf '4\n' | memo rem -c                                # complete
-printf '4\n' | memo rem -d                                # delete
-printf '4\ntitle\nNew title\n' | memo rem -e              # retitle
-printf '4\ndue date\n2026-08-12\n09:00\n' | memo rem -e   # reschedule
-```
-
-All three fields are required on add — there's no way to create an undated reminder. Reminder titles go into AppleScript unescaped, so a `"` in a title breaks the command; use plain titles, or say so and let the user add the quotes in Reminders.app.
+The live list matters because reminders have no cached snapshot. Feed the number only after the command's current line still matches the authorized target.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Memo for Apple Notes"
+  short_description: "Manage Apple Notes and Reminders safely"
+  default_prompt: "Use $memo to inspect or update my Apple Notes or Apple Reminders safely."

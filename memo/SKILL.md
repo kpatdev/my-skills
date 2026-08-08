@@ -1,90 +1,69 @@
 ---
 name: memo
-description: Read and write Apple Notes and Reminders from the terminal with the memo CLI.
-disable-model-invocation: true
+description: Operate Apple Notes and Apple Reminders through the memo CLI on macOS. Use when the user asks to inspect or change either app, or asks to use memo for notes or reminders.
 ---
 
 # memo
 
-`memo` is a macOS-only CLI over Apple Notes (`memo notes`) and Apple Reminders (`memo rem`). It was built for a human sitting at a TTY — it prompts, and it opens `$EDITOR`. Everything below is how to **drive** it from a non-interactive shell instead.
+Treat every indexed change as an **attended transaction**: resolve the target from the list printed by the same live command, feed its number only after the line still matches, then verify the postcondition.
 
-Check what you're working against; flags move between releases:
+## Establish the command surface
 
-```sh
-memo --version    # this skill is written against 0.6.0
-```
-
-## Drive it — never let it block
-
-Every prompt `memo` shows is a plain stdin read, so feed it:
+Run:
 
 ```sh
-printf '3\n' | memo notes -f "Docs" -d
+command -v memo
+memo --version
+memo notes --help
+memo rem --help
 ```
 
-One command can't be driven: `memo notes -s` launches a full-screen `fzf` picker and never returns without a human at the keyboard. Search by listing instead:
+This skill is verified against memo 0.6.0 and 0.6.1 on macOS. For another version, use its installed `--help` output and the matching [upstream release source](https://github.com/antoniorodr/memo); use the [documentation](https://antoniorodr.github.io/memo/Getting%20started/) for orientation. Proceed when `memo` exists and every required flag appears in the installed help.
+
+## Resolve notes through a snapshot
+
+`memo notes` assigns each note a global number and caches that map in `~/.cache/memo/notes_cache.json` for 300 seconds. Memo's own note writes clear the cache; changes from Notes.app do not. Use `-nc` to rebuild the snapshot before resolving a target.
 
 ```sh
-memo notes | grep -i "invoice"
+memo notes -nc                 # fresh global snapshot
+memo notes -nc -f "Docs"       # discovery filter; global numbers remain
+memo notes -v 12               # body as Markdown
+memo notes -fl                 # exact folder and subfolder names; use alone
 ```
 
-## The snapshot
+`-f` is a substring match over `Folder - Title`, not an exact folder selector. It can match a title or several similarly named folders. Use `memo notes -fl` to establish the exact folder name.
 
-`memo notes` prints one line per note — `N. Folder - Title`. That `N` is what every number prompt and `-v N` addresses.
+Memo 0.6.x can reject a displayed global number—or select the wrong note—when `-f` is combined with `-e`, `-d`, or `-m`. Use filters only for discovery; run indexed mutations unfiltered.
 
-- `N` is a global index over all your notes. `-f` filters which lines print but keeps the original numbers, so a number read off a filtered list stays valid.
-- The list is cached in `~/.cache/memo/notes_cache.json` for 300 seconds. `memo`'s own writes clear it; edits made in Notes.app do not.
-
-So the numbering is a **snapshot** of a moment: take it and act on it in the same breath. Prefix `-nc` to force a fresh one.
-
-`-f` is a substring match against the whole `Folder - Title` string, not a folder lookup — `-f Doc` matches both `Docs` and `Documentation`, and `-f Tesla` matches a note titled "Tesla Copy" sitting in any folder. Get exact folder names from `memo notes -fl`.
-
-Flags don't combine: `-fl` must be alone, `-a` requires `-f`, and only one of `-e -d -m -r -ex -v -s` per command.
-
-## Reading
+For non-interactive search, filter the listing:
 
 ```sh
-memo notes                # every note, numbered
-memo notes -f "Docs"      # filtered; numbers preserved
-memo notes -nc -f "Docs"  # ...from a fresh snapshot
-memo notes -v 12          # note 12's body, as Markdown
-memo notes -fl            # folder and subfolder names (must be alone)
-memo rem                  # incomplete reminders, numbered, with due dates
+memo notes -nc | rg -i -- 'invoice'
 ```
 
-Recently Deleted is excluded from every listing.
+`memo notes -s` launches full-screen `fzf`; reserve it for a human-controlled terminal.
 
-## Mutating
+## Read
 
-Every write runs this sequence. Don't compress it — the number you type is only as good as the snapshot it came from.
+- List notes with `memo notes -nc`, optionally adding `-f` for discovery.
+- Read a note only after matching its exact `N. Folder - Title` line; then run `memo notes -v N` against that snapshot.
+- Run `memo rem` to list incomplete reminders. Reminders are fetched live and are not cached.
 
-1. **Refresh the snapshot.** `memo notes -nc -f "<folder>"`.
-2. **Read back the target.** Quote the exact `N. Folder - Title` line to the user. For a delete or an edit, show `memo notes -v N` too, so the content being changed is on screen.
-3. **Show the command verbatim and get an explicit OK.** Name the blast radius when it's wider than one note — `-r` removes a folder *and every note in it*.
-4. **Run it**, stdin fed.
-5. **Verify.** Re-list with `-nc`, or `-v` the note. Done when the intended change is visible and nothing else moved.
+A read is complete when the requested content and its identifying note or reminder line are both visible.
 
-Deleted notes land in Recently Deleted and are recoverable there for about 30 days. A deleted folder takes its notes down with it.
+## Change
 
-### Creating a note
+Before any create, edit, move, delete, complete, reschedule, or export, read [`RECIPES.md`](RECIPES.md) for that operation's exact prompt order and loss risks. Then run this transaction:
 
-`memo` opens `$EDITOR` on a temp Markdown file and imports whatever you leave in it. It runs `[$EDITOR, tempfile]` directly — never shell-split — so `$EDITOR` has to be one executable, not a command line. This skill ships a **shim** that stands in for the editor:
+1. **Inspect.** Refresh notes with `-nc`, or list reminders live. Quote the exact target line. For a note edit, move, or delete, also show `memo notes -v N`.
+2. **Stage.** Prepare the complete new body or every prompt value. State the material effect and every operation-specific loss risk from `RECIPES.md`.
+3. **Authorize.** Show the command, target, and staged values verbatim; get the user's explicit final OK.
+4. **Re-resolve.** Start the mutation as a live process with stdin still open. For an indexed change, wait for its current list and selection prompt. Feed `N` only when the current `N. …` line is the authorized target. Return to step 1 on any mismatch.
+5. **Execute.** Feed later prompts in the documented order. Capture the exit status and output.
+6. **Verify.** Re-list notes with `-nc`, view the changed note, or re-list reminders. Compare the result with the staged postcondition.
 
-```sh
-MEMO_EDITOR="<absolute path to this skill>/scripts/memo-editor.sh"
+The transaction is complete only when the exact postcondition is visible. A command error, target mismatch, or unverifiable result leaves it incomplete and must be reported without claiming success.
 
-printf '# Grocery list\n\n- milk\n- eggs\n' > /tmp/note.md
-MEMO_BODY=/tmp/note.md EDITOR="$MEMO_EDITOR" memo notes -f "Docs" -a
-```
+## Automation permission
 
-- Apple Notes takes the note's title from the first line of the body — open the file with it.
-- The Markdown is converted to HTML before it reaches AppleScript, and `" < > &` are escaped along the way, so ordinary prose needs no special handling.
-- An empty body, or an unset `MEMO_BODY`, leaves the placeholder in place and `memo` cancels the create.
-
-## Everything else — `RECIPES.md`
-
-[`RECIPES.md`](RECIPES.md) holds the stdin recipes for the rest: **editing** a note (including keeping its images), **moving** notes between folders, **deleting** notes and folders, **exporting** to HTML, and the full **reminders** set — add, complete, delete, retitle, reschedule. Open it whenever the task is one of those.
-
-## When osascript refuses
-
-An error mentioning `-1743` or "Not authorized" means macOS hasn't granted automation access to Notes or Reminders. That's a GUI consent dialog under System Settings → Privacy & Security → Automation — hand it to the user, it can't be granted from the shell.
+An AppleScript error containing `-1743` or “Not authorized” means macOS has not granted the terminal automation access. Ask the user to enable the relevant terminal under **System Settings → Privacy & Security → Automation** for Notes or Reminders, then rerun the interrupted read or transaction from its first step.
