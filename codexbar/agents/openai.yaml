@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodexBar CLI"
+  short_description: "Check AI quota, runway, cost, and status"
+  default_prompt: "Use $codexbar to check my Codex quota and tell me whether it will last through this session."
