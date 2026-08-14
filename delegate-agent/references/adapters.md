@@ -16,7 +16,11 @@ Read-only mode means something different in each harness. The wrapper always sta
 
 Pi is the one to watch: with no sandbox of its own, a write-mode Pi delegate has the permissions of the account that launched it. Put it in a container or a throwaway worktree when the isolation has to be real.
 
+A delegate that hits `--timeout` is killed as an entire process group, so the model requests and test runners the harness spawned die with it. The timeout bounds the work, not merely the wait.
+
 `all` runs the selected harnesses concurrently, three at a time by default (`--parallel`). Write-mode fanout to a single checkout is blocked outright, because concurrent writers to one working tree corrupt each other's edits — one `git worktree` and one `--cwd` per writer.
+
+`--max-output-chars` is the whole run's output budget, not each delegate's: a fanout divides it across the delegates, so five harnesses cannot spend five times the caller's context.
 
 ## Models
 

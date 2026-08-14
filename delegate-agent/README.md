@@ -1,6 +1,6 @@
 # delegate-agent
 
-Portable Agent Skill for delegating bounded work to an independent coding-agent harness, and treating what comes back as evidence rather than an answer.
+Portable Agent Skill for delegating bounded work to an independent coding-agent harness — a subagent that runs outside the calling agent's context, on a different model, and hands back a report.
 
 Delegates: Google Antigravity CLI, Claude Code, OpenAI Codex CLI, OpenCode, Pi Coding Agent.
 
@@ -52,6 +52,12 @@ Everything except `implement` defaults to read-only; `--write` and `--read-only`
 scripts/delegate-agent models          # what each installed CLI can report
 scripts/delegate-agent run codex --role verify --task "..." --dry-run
 ```
+
+## Output
+
+Each delegate's answer lands in the calling agent's context, so `--max-output-chars` (default 60000, `0` disables) bounds it, eliding the middle and keeping both ends. It is the budget for the whole run: a fanout splits it across delegates. `elided_chars` reports what was dropped.
+
+A delegate that hits `--timeout` (default 900s) is killed as a process group, so nothing the harness spawned outlives it.
 
 ## Requirements
 

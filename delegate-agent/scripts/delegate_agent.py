@@ -14,6 +14,7 @@ import json
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -21,6 +22,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SUPPORTED = ("antigravity", "claude", "codex", "opencode", "pi")
+
+# A delegate's answer lands in the calling agent's context window. 60k characters
+# is roughly 15k tokens: enough for a thorough review with evidence, bounded
+# enough that a runaway transcript cannot crowd out the conversation it serves.
+DEFAULT_MAX_OUTPUT = 60_000
 READ_ONLY_ROLES = {"review", "verify", "debug", "research", "solve"}
 ROLES = tuple(sorted(READ_ONLY_ROLES | {"implement"}))
 
@@ -158,12 +164,40 @@ def adapter_command(agent: str, prompt: str, writable: bool, model: str | None) 
     raise ValueError(f"Unsupported agent: {agent}")
 
 
+def elide(text: str, limit: int, head_share: float = 0.7) -> tuple[str, int]:
+    """Cap text at limit chars, keeping both ends and eliding the middle.
+
+    The delegate prompt asks for the conclusion first and next actions last, so
+    both ends carry the answer while the evidence in between is the expendable
+    bulk. Returns the text and the number of characters removed.
+    """
+    if limit <= 0 or len(text) <= limit:
+        return text, 0
+
+    marker_template = "\n\n[... {n} characters elided by delegate-agent ...]\n\n"
+    # Reserve room for the marker itself, using a worst-case width for {n}.
+    reserved = len(marker_template.format(n=len(text)))
+    budget = limit - reserved
+    if budget <= 0:
+        return marker_template.format(n=len(text)).strip(), len(text)
+
+    head_len = int(budget * head_share)
+    tail_len = budget - head_len
+    removed = len(text) - head_len - tail_len
+    head = text[:head_len]
+    tail = text[len(text) - tail_len:] if tail_len else ""
+    return head + marker_template.format(n=removed) + tail, removed
+
+
 def normalized_result(
     *, agent: str, role: str, writable: bool, cwd: Path,
     cmd: list[str], ok: bool, exit_code: int | None,
     result: str, stderr: str, duration: float, error: str | None = None,
-    dry_run: bool = False, model: str | None = None,
+    dry_run: bool = False, model: str | None = None, max_output: int = 0,
 ) -> dict:
+    # stderr is diagnostics, not the answer; it gets a quarter of the budget.
+    kept_result, cut_result = elide(result.strip(), max_output)
+    kept_stderr, cut_stderr = elide(stderr.strip(), max_output // 4 if max_output else 0, head_share=0.2)
     return {
         "agent": agent,
         "role": role,
@@ -173,12 +207,42 @@ def normalized_result(
         "ok": ok,
         "exit_code": exit_code,
         "duration_seconds": round(duration, 3),
-        "result": result.strip(),
-        "stderr": stderr.strip(),
+        "result": kept_result,
+        "stderr": kept_stderr,
+        "elided_chars": {"result": cut_result, "stderr": cut_stderr},
         "error": error,
         "dry_run": dry_run,
         "command": shlex.join(cmd) if dry_run else None,
     }
+
+
+def kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the harness and everything it spawned.
+
+    A harness launches model requests, language servers, and test runners of its
+    own. Killing only the direct child orphans those, so the delegate keeps
+    burning tokens and CPU after the wrapper has given up on it. run_one starts
+    each harness in its own session, which makes the whole tree one signalable
+    process group.
+    """
+    if os.name != "posix":
+        proc.kill()
+        return
+    try:
+        pgid = os.getpgid(proc.pid)
+    except (ProcessLookupError, PermissionError, OSError):
+        proc.kill()
+        return
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(pgid, sig)
+        except (ProcessLookupError, PermissionError, OSError):
+            return
+        try:
+            proc.wait(timeout=5)
+            return
+        except subprocess.TimeoutExpired:
+            continue
 
 
 def run_one(
@@ -190,69 +254,75 @@ def run_one(
     model: str | None,
     timeout: int,
     dry_run: bool,
+    max_output: int = 0,
 ) -> dict:
     adapter = ADAPTERS[agent]
     prompt = build_prompt(task, role, writable, cwd)
     cmd = adapter_command(agent, prompt, writable, model)
+    envelope = dict(
+        agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
+        model=model, max_output=max_output,
+    )
 
     if dry_run:
         return normalized_result(
-            agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
-            ok=True, exit_code=0, result="", stderr="", duration=0.0,
-            dry_run=True, model=model,
+            **envelope, ok=True, exit_code=0, result="", stderr="",
+            duration=0.0, dry_run=True,
         )
 
     if not command_exists(adapter.executable):
         return normalized_result(
-            agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
-            ok=False, exit_code=None, result="", stderr="", duration=0.0,
-            error=f"Executable not found: {adapter.executable}", model=model,
+            **envelope, ok=False, exit_code=None, result="", stderr="", duration=0.0,
+            error=f"Executable not found: {adapter.executable}",
         )
 
     start = time.monotonic()
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             cwd=str(cwd),
             text=True,
             stdin=subprocess.DEVNULL,  # a harness that falls back to an interactive prompt must fail, not block
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=timeout,
             env=os.environ.copy(),
-            check=False,
-        )
-        duration = time.monotonic() - start
-        return normalized_result(
-            agent=agent,
-            role=role,
-            writable=writable,
-            cwd=cwd,
-            cmd=cmd,
-            ok=(proc.returncode == 0),
-            exit_code=proc.returncode,
-            result=proc.stdout,
-            stderr=proc.stderr,
-            duration=duration,
-            error=None if proc.returncode == 0 else f"{agent} exited with code {proc.returncode}",
-            model=model,
-        )
-    except subprocess.TimeoutExpired as exc:
-        duration = time.monotonic() - start
-        stdout = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-        stderr = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-        return normalized_result(
-            agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
-            ok=False, exit_code=None, result=stdout, stderr=stderr, duration=duration,
-            error=f"Timed out after {timeout} seconds", model=model,
+            start_new_session=(os.name == "posix"),
         )
     except Exception as exc:  # wrapper should report failures, not hide them
-        duration = time.monotonic() - start
         return normalized_result(
-            agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
-            ok=False, exit_code=None, result="", stderr="", duration=duration,
-            error=f"{type(exc).__name__}: {exc}", model=model,
+            **envelope, ok=False, exit_code=None, result="", stderr="",
+            duration=time.monotonic() - start,
+            error=f"{type(exc).__name__}: {exc}",
         )
+
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_process_tree(proc)
+        stdout, stderr = proc.communicate()  # drain whatever the harness managed to emit
+        return normalized_result(
+            **envelope, ok=False, exit_code=None,
+            result=stdout or "", stderr=stderr or "",
+            duration=time.monotonic() - start,
+            error=f"Timed out after {timeout} seconds",
+        )
+    except Exception as exc:
+        kill_process_tree(proc)
+        return normalized_result(
+            **envelope, ok=False, exit_code=None, result="", stderr="",
+            duration=time.monotonic() - start,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+    return normalized_result(
+        **envelope,
+        ok=(proc.returncode == 0),
+        exit_code=proc.returncode,
+        result=stdout or "",
+        stderr=stderr or "",
+        duration=time.monotonic() - start,
+        error=None if proc.returncode == 0 else f"{agent} exited with code {proc.returncode}",
+    )
 
 
 def resolve_mode(role: str, force_write: bool, force_read_only: bool) -> bool:
@@ -376,6 +446,13 @@ def add_common_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile", help="Named model profile from .delegate-agent.json or ~/.config/delegate-agent/config.json")
     parser.add_argument("--config", help="Explicit path to model-profile config JSON")
     parser.add_argument("--timeout", type=int, default=900, help="Per-agent timeout in seconds (default: 900)")
+    parser.add_argument(
+        "--max-output-chars", type=int, default=DEFAULT_MAX_OUTPUT,
+        help=(
+            f"Total output budget, elided from the middle and split across delegates "
+            f"in a fanout (default: {DEFAULT_MAX_OUTPUT}; 0 disables)"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print normalized payload with exact command; do not execute")
 
 
@@ -421,17 +498,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.subcommand == "models":
         selected = [args.agent] if args.agent else list(SUPPORTED)
         rows = []
+        # Discovery reports the world as it is; only a listing command that was
+        # run and failed is an error. An absent CLI is a finding, not a failure.
+        listing_failed = False
         for agent in selected:
             adapter = ADAPTERS[agent]
             if not command_exists(adapter.executable):
-                rows.append({"agent": agent, "installed": False, "ok": False, "models": None, "guidance": "CLI not installed"})
+                rows.append({"agent": agent, "installed": False, "ok": True, "models": None, "guidance": "CLI not installed"})
                 continue
             cmd = MODEL_LIST_COMMANDS.get(agent)
             if not cmd:
                 rows.append({"agent": agent, "installed": True, "ok": True, "models": None, "guidance": MODEL_LIST_GUIDANCE[agent]})
                 continue
             try:
-                proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=args.timeout, check=False)
+                proc = subprocess.run(
+                    cmd, text=True, stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=args.timeout, check=False,
+                )
+                listing_failed |= proc.returncode != 0
                 rows.append({
                     "agent": agent,
                     "installed": True,
@@ -441,9 +526,10 @@ def main(argv: list[str] | None = None) -> int:
                     "stderr": proc.stderr.strip() or None,
                 })
             except subprocess.TimeoutExpired:
+                listing_failed = True
                 rows.append({"agent": agent, "installed": True, "ok": False, "models": None, "guidance": f"Model listing timed out after {args.timeout}s"})
         emit(rows)
-        return 0 if all(row["ok"] for row in rows) else 1
+        return 1 if listing_failed else 0
 
     cwd = Path(args.cwd).expanduser().resolve()
     if not cwd.exists() or not cwd.is_dir():
@@ -451,6 +537,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.timeout <= 0:
         emit({"ok": False, "error": "--timeout must be greater than zero"})
+        return 2
+    if args.max_output_chars < 0:
+        emit({"ok": False, "error": "--max-output-chars must be zero or greater"})
         return 2
 
     try:
@@ -470,7 +559,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.subcommand == "run":
         selected_model = args.model or profile_map.get(args.agent)
         payload = run_one(
-            args.agent, args.role, args.task, cwd, writable, selected_model, args.timeout, args.dry_run
+            args.agent, args.role, args.task, cwd, writable, selected_model,
+            args.timeout, args.dry_run, args.max_output_chars,
         )
         payload["profile"] = profile
         payload["config"] = str(config_path) if config_path else None
@@ -500,11 +590,15 @@ def main(argv: list[str] | None = None) -> int:
 
     results: list[dict] = []
     workers = min(args.parallel, len(agents))
+    # The budget is what the whole fanout may spend of the caller's context, so
+    # it divides across delegates rather than applying to each one separately.
+    per_agent_output = args.max_output_chars // len(agents) if args.max_output_chars else 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         future_map = {
             pool.submit(
                 run_one, agent, args.role, args.task, cwd, writable,
-                per_agent_models.get(agent) or args.model or profile_map.get(agent), args.timeout, args.dry_run
+                per_agent_models.get(agent) or args.model or profile_map.get(agent),
+                args.timeout, args.dry_run, per_agent_output,
             ): agent
             for agent in agents
         }
