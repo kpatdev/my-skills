@@ -8,13 +8,15 @@ Read-only mode means something different in each harness. The wrapper always sta
 
 | Target | Executable | Read-only enforcement | Write mode |
 |---|---|---|---|
-| Antigravity | `agy` | `--mode=plan` — read-only tools before proposing changes | `--mode=accept-edits`; Antigravity's own permission and sandbox settings still apply |
+| Antigravity | `agy` | `--mode=plan` — refuses edits even with permissions skipped | `--mode=accept-edits`; Antigravity's own permission and sandbox settings still apply |
 | Claude Code | `claude` | `--permission-mode plan` | `--permission-mode auto` — deliberately not `bypassPermissions`, so permission checks stay live |
 | Codex | `codex` | `--sandbox read-only --ask-for-approval never` — an OS sandbox, the strongest guarantee here | `--sandbox workspace-write`, still never escalating |
 | OpenCode | `opencode` | `run --agent plan` — the built-in analysis agent | `run --agent build --auto`; local config can override agent permissions |
 | Pi | `pi` | `-p --tools read,grep,find,ls` — a tool allowlist, no OS sandbox | full tool set, running as the launching user |
 
 Pi is the one to watch: with no sandbox of its own, a write-mode Pi delegate has the permissions of the account that launched it. Put it in a container or a throwaway worktree when the isolation has to be real.
+
+Antigravity needs two flags the other harnesses do not, and both are load-bearing. `--add-dir` binds it to `--cwd`: without it `agy` ignores the process working directory, operates inside `~/.gemini/antigravity-cli/scratch`, and reports edits to files it never touched in the real checkout. `--dangerously-skip-permissions` is what makes headless mode work at all — a permission prompt `agy` cannot display is auto-denied, and the run returns empty with the reason on stderr. The flag reads alarming but does not widen write access here: `--mode=plan` was tested against an explicit instruction to overwrite and create files, and the workspace was untouched. Two behaviours survive the fix: Antigravity writes plan files into `~/.gemini/antigravity-cli/brain/` regardless of mode, so read-only means the checkout rather than the disk, and a task phrased as work rather than a question comes back as a plan awaiting approval instead of an answer — which makes it a poor choice for `implement`.
 
 A delegate that hits `--timeout` is killed as an entire process group, so the model requests and test runners the harness spawned die with it. The timeout bounds the work, not merely the wait.
 

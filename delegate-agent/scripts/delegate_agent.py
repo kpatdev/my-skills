@@ -107,11 +107,18 @@ Reach your own conclusion from the workspace; treat the parent agent's view as a
 """
 
 
-def adapter_command(agent: str, prompt: str, writable: bool, model: str | None) -> list[str]:
+def adapter_command(agent: str, prompt: str, writable: bool, model: str | None, cwd: Path) -> list[str]:
     """Build a conservative headless invocation for each harness."""
     if agent == "antigravity":
-        cmd = ["agy", "-p", prompt, "--output-format", "text"]
+        # --add-dir is load-bearing: without it agy ignores the process cwd and
+        # works against ~/.gemini/antigravity-cli/scratch, reporting edits that
+        # never reach the real checkout. --dangerously-skip-permissions is what
+        # makes headless viable at all, since a permission prompt agy cannot
+        # show is auto-denied and the run returns empty. The write barrier is
+        # --mode=plan, which refuses edits even with permissions skipped.
+        cmd = ["agy", "-p", prompt, "--output-format", "text", "--add-dir", str(cwd)]
         cmd += ["--mode=accept-edits" if writable else "--mode=plan"]
+        cmd += ["--dangerously-skip-permissions"]
         if model:
             cmd += ["--model", model]
         return cmd
@@ -258,7 +265,7 @@ def run_one(
 ) -> dict:
     adapter = ADAPTERS[agent]
     prompt = build_prompt(task, role, writable, cwd)
-    cmd = adapter_command(agent, prompt, writable, model)
+    cmd = adapter_command(agent, prompt, writable, model, cwd)
     envelope = dict(
         agent=agent, role=role, writable=writable, cwd=cwd, cmd=cmd,
         model=model, max_output=max_output,

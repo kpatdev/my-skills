@@ -15,6 +15,8 @@ sys.modules[spec.name] = mod
 assert spec.loader
 spec.loader.exec_module(mod)
 
+WORKSPACE = pathlib.Path("/tmp/delegate-agent-workspace")
+
 
 class DelegateAgentTests(unittest.TestCase):
     def test_roles_default_read_only(self):
@@ -23,26 +25,41 @@ class DelegateAgentTests(unittest.TestCase):
         self.assertTrue(mod.resolve_mode("implement", False, False))
 
     def test_antigravity_modes(self):
-        ro = mod.adapter_command("antigravity", "x", False, None)
-        wr = mod.adapter_command("antigravity", "x", True, None)
+        ro = mod.adapter_command("antigravity", "x", False, None, WORKSPACE)
+        wr = mod.adapter_command("antigravity", "x", True, None, WORKSPACE)
         self.assertIn("--mode=plan", ro)
         self.assertIn("--mode=accept-edits", wr)
 
+    def test_antigravity_is_bound_to_the_workspace(self):
+        # Without --add-dir, agy works against its own scratch directory and
+        # reports edits that never reach the checkout.
+        for writable in (False, True):
+            cmd = mod.adapter_command("antigravity", "x", writable, None, WORKSPACE)
+            self.assertIn("--add-dir", cmd)
+            self.assertIn(str(WORKSPACE), cmd)
+
+    def test_antigravity_skips_prompts_headless(self):
+        # A permission prompt agy cannot show is auto-denied, and the run
+        # returns empty. --mode=plan remains the write barrier.
+        for writable in (False, True):
+            cmd = mod.adapter_command("antigravity", "x", writable, None, WORKSPACE)
+            self.assertIn("--dangerously-skip-permissions", cmd)
+
     def test_codex_sandbox(self):
-        ro = mod.adapter_command("codex", "x", False, None)
-        wr = mod.adapter_command("codex", "x", True, None)
+        ro = mod.adapter_command("codex", "x", False, None, WORKSPACE)
+        wr = mod.adapter_command("codex", "x", True, None, WORKSPACE)
         self.assertIn("read-only", ro)
         self.assertIn("workspace-write", wr)
         self.assertIn("never", ro)
 
     def test_pi_read_tools(self):
-        ro = mod.adapter_command("pi", "x", False, None)
+        ro = mod.adapter_command("pi", "x", False, None, WORKSPACE)
         joined = " ".join(ro)
         self.assertIn("read,grep,find,ls", joined)
 
     def test_opencode_agents(self):
-        ro = mod.adapter_command("opencode", "x", False, None)
-        wr = mod.adapter_command("opencode", "x", True, None)
+        ro = mod.adapter_command("opencode", "x", False, None, WORKSPACE)
+        wr = mod.adapter_command("opencode", "x", True, None, WORKSPACE)
         self.assertIn("plan", ro)
         self.assertIn("build", wr)
 
@@ -64,7 +81,7 @@ class DelegateAgentTests(unittest.TestCase):
 
     def test_model_is_forwarded(self):
         for agent in mod.SUPPORTED:
-            cmd = mod.adapter_command(agent, "x", False, "model-x")
+            cmd = mod.adapter_command(agent, "x", False, "model-x", WORKSPACE)
             self.assertIn("--model", cmd, agent)
             self.assertIn("model-x", cmd, agent)
 
