@@ -1,0 +1,19 @@
+{
+  "default_profile": "quality",
+  "profiles": {
+    "quality": {
+      "antigravity": "MODEL_SLUG_FROM_AGY_MODELS",
+      "claude": "CLAUDE_MODEL_ALIAS_OR_ID",
+      "codex": "CODEX_MODEL_ID",
+      "opencode": "PROVIDER/MODEL",
+      "pi": "PROVIDER/MODEL"
+    },
+    "fast": {
+      "antigravity": "FASTER_ANTIGRAVITY_MODEL_SLUG",
+      "claude": "FASTER_CLAUDE_MODEL_ALIAS_OR_ID",
+      "codex": "FASTER_CODEX_MODEL_ID",
+      "opencode": "PROVIDER/FASTER_MODEL",
+      "pi": "PROVIDER/FASTER_MODEL"
+    }
+  }
+}
