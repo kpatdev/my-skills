@@ -7,10 +7,11 @@ Delegates: Google Antigravity CLI, Claude Code, OpenAI Codex CLI, OpenCode, Pi C
 ## Install
 
 ```bash
-./scripts/install.sh
+npx skills add kpatdev/skills -s delegate-agent
+npx skills update
 ```
 
-The installer keeps one canonical copy at `~/.agents/skills/delegate-agent`, discovered directly by Codex, OpenCode, and Pi, and symlinks `~/.claude/skills/delegate-agent` to it for Claude Code.
+`scripts/install.sh` is the older path: it copies the skill to `~/.agents/skills/delegate-agent` (discovered directly by Codex, OpenCode, and Pi) and symlinks `~/.claude/skills/delegate-agent` to that copy. Because it copies, an existing install does not track new commits, and it refuses to overwrite — remove the copy before re-running.
 
 ## Check delegates
 

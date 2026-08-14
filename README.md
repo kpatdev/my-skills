@@ -12,23 +12,36 @@ Each skill is a folder with a `SKILL.md` the agent loads, plus any reference fil
 
 ## Install
 
-Skills are discovered by directory. Copy or symlink the ones you want into the locations your harnesses read:
-
 ```sh
-# Codex, OpenCode, and Pi discover this directly
-ln -s "$PWD/memo" ~/.agents/skills/memo
-
-# Claude Code reads its own directory
-ln -s "$PWD/memo" ~/.claude/skills/memo
+npx skills add kpatdev/skills
 ```
 
-Symlinking from a checkout keeps the installed skill current as the repo changes.
-
-`delegate-agent` ships an installer instead, because it carries scripts of its own. It *copies* the skill to `~/.agents/skills/delegate-agent` and points `~/.claude/skills/delegate-agent` at that copy, so pulling new commits does not update it — remove the copy and re-run to upgrade, since the installer refuses to overwrite an existing install:
+That detects your agents and installs all three skills. Pick up later changes with:
 
 ```sh
-./delegate-agent/scripts/install.sh
+npx skills update
 ```
+
+`add` symlinks into your agent directories rather than copying, which is what makes `update` a one-liner. Useful variations:
+
+```sh
+npx skills add kpatdev/skills -l                 # list what's here, install nothing
+npx skills add kpatdev/skills -s delegate-agent  # a single skill
+npx skills add kpatdev/skills -g                 # user-level; default is project-level
+npx skills list                                  # what's installed
+npx skills remove                                # uninstall interactively
+```
+
+### From a checkout
+
+When editing the skills themselves, symlink the working copy so edits are live without reinstalling:
+
+```sh
+ln -s "$PWD/memo" ~/.agents/skills/memo   # Codex, OpenCode, and Pi read this
+ln -s "$PWD/memo" ~/.claude/skills/memo   # Claude Code reads its own directory
+```
+
+`delegate-agent` also ships `scripts/install.sh`, predating the above. It *copies* to `~/.agents/skills/delegate-agent` and links Claude Code's directory to that copy, so an existing install will not pick up new commits — and it refuses to overwrite, so remove the copy before re-running. Prefer `npx skills`.
 
 ## Writing a skill
 
