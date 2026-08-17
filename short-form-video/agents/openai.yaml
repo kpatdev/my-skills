@@ -1,0 +1,4 @@
+interface:
+  display_name: "Short-Form Video Scripts"
+  short_description: "Script and critique pharmacy short-form video"
+  default_prompt: "Use $short-form-video to script a short-form video for my pharmacy."
