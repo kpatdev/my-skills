@@ -10,9 +10,22 @@ Write every script for the **cold viewer**: a stranger mid-scroll who has never 
 
 Two branches: draft a script from a topic or an offer, or critique a script or a filmed cut that already exists.
 
+## House defaults — Lititz / Chet (apply unless the user overrides)
+
+These come from shoot-sheets 01–02. Do not re-ask for them every time:
+
+- **Presenter:** Chet, pharmacist, on camera for every video. Performs better improvising from talking points than reading word-for-word.
+- **Platforms:** Instagram Reels, Facebook, TikTok. One vertical 9:16 cut serves all three.
+- **Temperature:** cold organic reach (strangers, Lancaster County) unless the user says warm.
+- **Tone:** service and reassurance, never authority or confrontation. Chet is the guy who explains things, not an expert correcting people. Vaccine content stays low-key and factual, never advocacy. Medicare content stays explainer, never broker.
+- **Lengths:** 30 sec for single-point videos, 45 sec for three-beat or numbers videos. Roughly 25 min of session time per 5 videos.
+- **Caption style:** condensed Steve Hoffart — numbered, number-dense, one engagement question to close. First line finishes its thought before the ~125-character truncation fold. Three to five specific hashtags: local tags alongside category tags. No stuffing.
+- **Default deliverable:** a shoot sheet (see below), not standalone scripts. Older topic files written as full scripts convert to bullets on request.
+- **Topic library:** `topic-master-list.md` plus `topic-*.md` with status key `FILMED` / `SCRIPTED` / `READY`. Never re-shoot a FILMED video or a video already used in a prior shoot sheet without being asked. State where each video lives (e.g. "Topic 10 video 2") and what got cut and why.
+
 ## Gather the brand facts
 
-A script cannot be finished from a topic alone. When `.agents/product-marketing.md` or `.claude/product-marketing.md` exists, read it first and ask only for what it leaves open — the marketing skills on this machine share that file. Collect:
+A script cannot be finished from a topic alone. When `.agents/product-marketing.md` or `.claude/product-marketing.md` exists, read it first and ask only for what it leaves open — the marketing skills on this machine share that file. If the house defaults above already cover presenter, platforms, temperature, and tone, do not re-ask for them; collect only what is still open:
 
 - **Presenter** — name, credential, and the one number that makes them worth listening to.
 - **Offer** — what the video points at, its price, and the exact link destination.
@@ -88,12 +101,41 @@ The presenter's license is what is on camera, so a script clears these before it
 - **Supplements support; they do not treat.** Structure-function language — "supports healthy glucose metabolism" — stays inside what a supplement may claim. Disease language — treats, cures, prevents, reverses, lowers A1c — makes it an unapproved drug claim.
 - **Compounded preparations stay described, not ranked.** They are not FDA-approved products, so the script explains what a compound is and who it suits rather than framing it as safer or more effective than the approved drug.
 - **Testimonials carry the ordinary result.** A standout outcome gets the typical one said aloud in the same breath, and a paid or employed endorser is disclosed on screen.
+- **No efficacy percentages on camera.** They shift by season and strain match — route to a conversation, never a promise of outcome.
+- **Medicare: explain, never recommend.** Chet is not an insurance broker. Do not name or recommend specific plans. Route to a counter comparison or to APPRISE (Pennsylvania's free counseling program). Only offer a comparison if staffing through the window is confirmed.
+- **Vaccines: factual, low-key, no patient stories in this lane.** Confirm the current physician protocol, stock (which flu products, which 65+ formulations), and guidance before filming — RSV thresholds, pneumonia-at-50, and flu MMWR language all moved recently.
+- **Props must be blank or generic.** A blank envelope, never real patient mail. Confirm a promised formulation is actually in stock before the video posts. Only promise tracking (e.g. shingles dose 2) if the pharmacy will actually staff it.
+- **Regulatory words matter verbatim.** Oral phenylephrine is "proposed" for removal, never "banned" or "removed," and the nasal-spray distinction stays in. If a final order lands, the script gets rewritten, not patched.
 
 This step is complete when every claim in the script is one the presenter could defend to their state board, and no person in the story is resolvable by someone who shops at that pharmacy.
 
 ## Hand over something shootable
 
-Deliver the spoken lines with the four beats labelled and a running time, plus the setup card the presenter checks before recording:
+Default output is a **shoot sheet** the presenter records from directly, following shoot-sheets 01–02. Complete when Chet could pick up a phone and record straight from the page without asking a question.
+
+Header: `# Shoot Sheet NN`, `**Talent:** Chet · **N videos · one session, roughly X minutes**`, then:
+- **How to use this:** shoot version (bullets, own words) plus full script underneath as safety net, not target.
+- **Hook + close verbatim rule:** the hook line and closing line land close to verbatim; everything between is his.
+- **Tone for this batch** in one short paragraph.
+- **Captions are pre-written** and go to whoever posts, not to Chet.
+- **Verify before filming** list: the facts that move (CMS Part D figures, phenylephrine proposal status, RSV/pneumonia thresholds, flu MMWR, caffeine figures, label copy). Do not state a moving fact that was not re-verified.
+
+Per video, in order:
+1. `# N. Title` + `**30 or 45 sec · props · opener flag if relevant**`
+2. `## Shoot version` — **Open with:** verbatim hook. **Hit these:** 3–5 bullets in counter register. **Close with:** verbatim closing line.
+3. `## Full script` — `### Hook (0-3s)` with Visual / Verbal / Text overlay (overlay is the promise cut to thumbnail words, never a transcription); `### Body` with timestamped beats; `### CTA (last 3–5s)` with Verbal / Text; `### Production notes` (which prop does the work, what not to cut, what not to name).
+4. `## Caption` — first line self-contained pre-fold, numbered/emoji body, one engagement question, 3–5 hashtags.
+
+Session notes at the end:
+- **Shoot order:** 30-sec low-number videos first as warm-ups; numbers- or nuance-heavy videos last when warmed up. Name the warmest video as recommended opener.
+- **If shooting a subset:** name the must-shoots plus 3rd/4th picks by priority.
+- **Props needed:** one consolidated list.
+- **Deliberate constraints:** what this batch avoids (e.g. no product names, no efficacy claims, no plan recommendations) and why.
+- **Where these live:** Topic X video Y mapping for every video.
+- **What got cut and why:** deferred videos with their better timing.
+- **Unused check:** confirm no overlap with prior shoot sheets or FILMED videos.
+
+Setup card the presenter checks before recording (assume known, restate only if the setup changed):
 
 - **Vertical 9:16**, framed from the chest up, with the head near the top of the frame rather than the middle.
 - **Camera at eye level** — tilted up or down reads as looming or deferential, and both cost authority.
@@ -101,10 +143,6 @@ Deliver the spoken lines with the four beats labelled and a running time, plus t
 - **A lav or headset mic, in a soft room** — audio carries a video that video cannot carry back, and a hard-surfaced room echoes.
 - **A background chosen on purpose** — the shelf behind the presenter is either deliberate and on-brand, or empty.
 - **Burned-in captions** — most of this feed is watched with the sound off, and a pharmacy's audience stacks sound-off viewing with hard-of-hearing viewers. Two lines on screen at most, three to five words a line, high-contrast sans with an outline, timed to the actual speech.
-
-Ship the post copy beside the script: a first line that finishes its thought before the platform truncates it — about 125 characters is the safe fold — the next step written out for whoever reads instead of watches, and three to five specific hashtags. Stuffing has stopped working on all four platforms, and every tag still spends the caption's character budget.
-
-Complete when the presenter could pick up a phone and record straight from the page without asking a question.
 
 ## Critique an existing video
 
