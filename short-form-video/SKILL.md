@@ -54,6 +54,8 @@ Write three hooks in different styles, then pick one:
 - **Polarizing** — "If you're buying magnesium at the grocery store, stop."
 - **Curiosity gap** — "One patient tried this for 30 days. Here's her lab work."
 
+[`references/hooks.md`](references/hooks.md) holds the pattern library: these three styles plus insider, series, and update, with the proven patterns marked. Draft from it, and reach for it again when a critique needs a replacement hook.
+
 One sentence, five to eight words. The script opens at full energy, because on a scroll there is no earlier line to build from — the first word is already the middle of the video.
 
 The hook runs on three channels at once, and all three land inside the first second: what the presenter **says**, what the viewer **sees** in the opening frame, and the **text overlay** burned across it. Write all three. The overlay is not the spoken line transcribed — it is the same promise cut down to a thumbnail's worth of words, because a sound-off viewer reads it before hearing anything.
@@ -165,4 +167,4 @@ Complete when all six have been ruled on and every failing beat has its rewritte
 
 ## Study set
 
-For patterns worth stealing — pacing, framing, how a hook lands, how a close stays on the back foot — [`references/creators.md`](references/creators.md) lists accounts that consistently make this format work in health and pharmacy. Reach for it when the user asks what good looks like, or when a critique needs a concrete comparison to point at.
+For patterns worth stealing — pacing, framing, how a hook lands, how a close stays on the back foot — [`references/creators.md`](references/creators.md) lists accounts that consistently make this format work in health and pharmacy, plus single example videos grouped by format (education, selling, ASMR). Reach for it when the user asks what good looks like, or when a critique needs a concrete comparison to point at.
