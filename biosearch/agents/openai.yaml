@@ -1,0 +1,4 @@
+interface:
+  display_name: "Biosearch"
+  short_description: "Search PubMed, preprints, trials, and FDA labels"
+  default_prompt: "Use $biosearch to research the evidence on semaglutide for Alzheimer's disease."

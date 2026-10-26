@@ -6,6 +6,7 @@ Each skill is a folder with a `SKILL.md` the agent loads, plus any reference fil
 
 | Skill | What it does |
 |---|---|
+| [`biosearch`](biosearch) | Search PubMed, bioRxiv/medRxiv, ClinicalTrials.gov, and FDA drug labels through free public APIs, then report findings as an evidence trail graded by the evidence hierarchy. Requires `uv`. |
 | [`cliproxy-quota`](cliproxy-quota) | Check live remaining quotas and reset times for each Claude and Codex OAuth account in CLIProxyAPI using its management API. Requires a management key and access to `docker-ai` over Tailscale. |
 | [`codexbar`](codexbar) | Meter AI subscription usage through the CodexBar CLI — quota headroom, reset times, runway forecasts, cost attribution, and headroom gates for scripts and CI. |
 | [`delegate-agent`](delegate-agent) | Delegate bounded work to another coding-agent harness (Antigravity, Claude Code, Codex, OpenCode, Pi) as a subagent running outside the caller's context. |
@@ -18,7 +19,7 @@ Each skill is a folder with a `SKILL.md` the agent loads, plus any reference fil
 npx skills add kpatdev/skills
 ```
 
-That detects your agents and installs all five skills. Pick up later changes with:
+That detects your agents and installs all six skills. Pick up later changes with:
 
 ```sh
 npx skills update
@@ -49,12 +50,12 @@ ln -s "$PWD/memo" ~/.claude/skills/memo   # Claude Code reads its own directory
 
 The house style:
 
-- **A leading word up front.** Each skill opens by naming the discipline it enforces — an *attended transaction* for `memo`, a *live snapshot* for `codexbar`, a *subagent in another harness* for `delegate-agent`, the *cold viewer* for `short-form-video` — and the rest of the document anchors to it.
+- **A leading word up front.** Each skill opens by naming the discipline it enforces — an *attended transaction* for `memo`, a *live snapshot* for `codexbar`, a *subagent in another harness* for `delegate-agent`, the *cold viewer* for `short-form-video`, an *evidence trail* for `biosearch` — and the rest of the document anchors to it.
 - **The environment is the source of truth.** Skills start by running `--help` against the installed binary rather than restating flags that will drift. What they cache is what the tooling cannot confess: unwritten conventions, failure modes, and the reasoning behind a choice.
 - **Every step ends on a completion criterion.** A step says how the agent can tell done from not-done, so it cannot drift off mid-task believing it finished.
 - **Progressive disclosure.** Material only some runs need lives in a reference file behind a pointer, keeping the main document short enough to stay legible.
 - **Positive instructions.** Skills state the target behavior rather than banning the wrong one; a prohibition drags the forbidden behavior into context and makes it more available, not less.
-- **Invocation matched to reach.** The four tool skills carry model-facing descriptions so an agent fires them on its own. `short-form-video` sets `disable-model-invocation: true` — it only ever runs when you type its name, so it costs no context load.
+- **Invocation matched to reach.** The five tool skills carry model-facing descriptions so an agent fires them on its own. `short-form-video` sets `disable-model-invocation: true` — it only ever runs when you type its name, so it costs no context load.
 
 These follow the `writing-for-agents` skill, which is where the reasoning behind them lives.
 
@@ -64,4 +65,11 @@ These follow the `writing-for-agents` skill, which is where the reasoning behind
 
 ```sh
 cd delegate-agent && python3 -m unittest discover -s tests
+```
+
+`biosearch` carries one too. Its live tests, which call each upstream API, run only when asked:
+
+```sh
+cd biosearch && uv run --no-project python -m unittest discover -s tests
+BIOSEARCH_LIVE=1 uv run --no-project python -m unittest discover -s tests
 ```
