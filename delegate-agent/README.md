@@ -7,7 +7,7 @@ Delegates: Google Antigravity CLI, Claude Code, OpenAI Codex CLI, OpenCode, Pi C
 ## Install
 
 ```bash
-npx skills add kpatdev/skills -s delegate-agent
+npx skills add kpatdev/my-skills -s delegate-agent
 npx skills update
 ```
 

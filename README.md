@@ -16,7 +16,7 @@ Each skill is a folder with a `SKILL.md` the agent loads, plus any reference fil
 ## Install
 
 ```sh
-npx skills add kpatdev/skills
+npx skills add kpatdev/my-skills
 ```
 
 That detects your agents and installs all six skills. Pick up later changes with:
@@ -28,11 +28,11 @@ npx skills update
 `add` symlinks into your agent directories rather than copying, which is what makes `update` a one-liner. Useful variations:
 
 ```sh
-npx skills add kpatdev/skills -l                 # list what's here, install nothing
-npx skills add kpatdev/skills -s delegate-agent  # a single skill
-npx skills add kpatdev/skills -g                 # user-level; default is project-level
-npx skills list                                  # what's installed
-npx skills remove                                # uninstall interactively
+npx skills add kpatdev/my-skills -l                 # list what's here, install nothing
+npx skills add kpatdev/my-skills -s delegate-agent  # a single skill
+npx skills add kpatdev/my-skills -g                 # user-level; default is project-level
+npx skills list                                     # what's installed
+npx skills remove                                   # uninstall interactively
 ```
 
 ### From a checkout

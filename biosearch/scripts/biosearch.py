@@ -25,7 +25,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 VERSION = "0.1.0"
-USER_AGENT = f"biosearch/{VERSION} (+https://github.com/kpatdev/skills)"
+USER_AGENT = f"biosearch/{VERSION} (+https://github.com/kpatdev/my-skills)"
 
 EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 CTGOV = "https://clinicaltrials.gov/api/v2/studies"
